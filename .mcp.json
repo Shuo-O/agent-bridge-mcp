@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "agent-bridge": {
+      "command": "node",
+      "args": ["src/server.mjs"],
+      "env": {}
+    }
+  }
+}

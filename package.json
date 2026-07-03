@@ -1,0 +1,23 @@
+{
+  "name": "agent-bridge-mcp",
+  "version": "0.1.0",
+  "description": "A safe local MCP bridge for delegating research between Codex and Claude Code.",
+  "type": "module",
+  "bin": {
+    "agent-bridge-mcp": "bin/agent-bridge-mcp"
+  },
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shuo-O/agent-bridge-mcp.git"
+  },
+  "homepage": "https://github.com/Shuo-O/agent-bridge-mcp#readme",
+  "bugs": "https://github.com/Shuo-O/agent-bridge-mcp/issues",
+  "license": "MIT"
+}

@@ -1,0 +1,5 @@
+[mcp_servers.agent-bridge]
+command = "node"
+args = ["src/server.mjs"]
+startup_timeout_sec = 10
+tool_timeout_sec = 920
