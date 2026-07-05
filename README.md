@@ -14,6 +14,7 @@ Agent Bridge 0.2 使用本地 MCP 作为统一入口，以官方 Codex SDK 和 C
 - 默认只读、禁用子 agent 的 MCP bridge，并阻止嵌套调用。
 - 默认是严格的订阅专用模式：主动移除 API key，也不暴露 API 工具。
 - 只有管理员显式开启 fallback 后，API 模式才可见；每次实际调用仍必须由 MCP 客户端弹窗确认。
+- 当 Claude Code 订阅被组织策略禁用时，可把 Codex 侧 `delegate_to_claude` 显式切到本机 LM Studio peer，不使用 Anthropic API。
 
 ## 要求
 
@@ -37,7 +38,7 @@ npm test
 
 项目已带两端配置：
 
-- Codex：`.codex/config.toml`，设置 `AGENT_BRIDGE_CALLER=codex`
+- Codex：`.codex/config.toml`，设置 `AGENT_BRIDGE_CALLER=codex`，并在当前交付中启用 LM Studio fallback peer
 - Claude Code：`.mcp.json`，设置 `AGENT_BRIDGE_CALLER=claude`
 
 在仓库根目录启动 Codex 或 Claude Code。首次启动时信任项目 MCP 配置；Claude Code 会明确要求批准 `.mcp.json`。
@@ -87,6 +88,36 @@ claude mcp add --scope user agent-bridge \
 ```
 
 Bridge 会找到该任务对应的 SDK session/thread 并延续上下文。
+
+### Claude Code 订阅被禁用时的替代方案
+
+当前机器的 Claude Pro 账号会被官方返回：
+
+```text
+Your organization has disabled Claude subscription access for Claude Code
+```
+
+因此 Codex 侧默认配置已切换为本地 LM Studio peer：
+
+```toml
+env = {
+  AGENT_BRIDGE_CALLER = "codex",
+  AGENT_BRIDGE_CLAUDE_BACKEND = "lmstudio",
+  AGENT_BRIDGE_LMSTUDIO_MODEL = "peer-agent",
+  AGENT_BRIDGE_LMSTUDIO_AUTO_START = "1"
+}
+```
+
+这条路径仍通过 MCP 的 `delegate_to_claude` / `get_task_status` / `get_task_result` 工作，但后端是本机 OpenAI-compatible LM Studio server，不使用 Anthropic API，也不依赖 Claude Code 订阅权限。
+
+手动准备本地模型：
+
+```bash
+lms server start
+lms load google/gemma-4-12b --identifier peer-agent -y --ttl 1800
+```
+
+如果以后组织开启了 Claude Code subscription access，把 `.codex/config.toml` 里的 `AGENT_BRIDGE_CLAUDE_BACKEND`、`AGENT_BRIDGE_LMSTUDIO_MODEL`、`AGENT_BRIDGE_LMSTUDIO_AUTO_START` 删除即可恢复官方 Claude Code 后端。
 
 ### 检索研究
 
@@ -138,7 +169,7 @@ Bridge 会找到该任务对应的 SDK session/thread 并延续上下文。
 # 单元与集成测试，不调用模型
 npm test
 
-# 两端真实 SDK 测试：首次任务 + 会话恢复
+# 两端真实 SDK/本地 peer 测试：首次任务 + 会话恢复
 npm run test:e2e
 
 # 真实验证：订阅被禁止后，经逐次确认切换 Claude API（可能产生费用）
