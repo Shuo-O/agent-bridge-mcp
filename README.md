@@ -139,6 +139,9 @@ npm test
 # 两端真实 SDK 测试：首次任务 + 会话恢复
 npm run test:e2e
 
+# 真实验证：订阅被禁止后，经逐次确认切换 Claude API（可能产生费用）
+npm run test:claude-fallback
+
 # 只测试一端
 AGENT_BRIDGE_E2E_AGENTS=codex npm run test:e2e
 AGENT_BRIDGE_E2E_AGENTS=claude npm run test:e2e

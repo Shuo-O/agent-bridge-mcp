@@ -78,7 +78,9 @@ AGENT_BRIDGE_E2E_AGENTS=claude npm run test:e2e
 这证明请求已进入 Claude Agent SDK/官方认证层，但当前账户状态无法完成模型响应。修复方式任选其一：
 
 - 让组织管理员开启 Claude Code 订阅访问；或
-- 为 API key 充值并显式设置 `AGENT_BRIDGE_ALLOW_API_KEYS=1`。
+- 为 API key 充值，并在 `retry_task_with_api` 的 MCP 确认提示中接受该次调用。
+
+2026-07-05 已使用新版逐次确认流程重新验收：订阅调用首先进入 `awaiting_api_confirmation`，MCP elicitation 接受后以同一任务 ID 切换 API，随后 API 返回 `Credit balance is too low`。测试只执行一次且未自动重试。新版不再支持 `AGENT_BRIDGE_ALLOW_API_KEYS` 静态开关；充值后运行 `npm run test:claude-fallback`，并在确认提示中接受本次费用即可复验。
 
 恢复认证后，重新运行 Claude 单端命令即可补齐验收。
 
