@@ -3,7 +3,9 @@
     "agent-bridge": {
       "command": "node",
       "args": ["src/server.mjs"],
-      "env": {}
+      "env": {
+        "AGENT_BRIDGE_CALLER": "claude"
+      }
     }
   }
 }

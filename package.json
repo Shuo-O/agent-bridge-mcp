@@ -1,6 +1,6 @@
 {
   "name": "agent-bridge-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A safe local MCP bridge for delegating research between Codex and Claude Code.",
   "type": "module",
   "bin": {
@@ -8,10 +8,12 @@
   },
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test"
+    "test": "node --test test/*.test.mjs",
+    "test:e2e": "node test/e2e.mjs",
+    "test:mcp-e2e": "node test/mcp-e2e.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.5"
   },
   "repository": {
     "type": "git",
@@ -19,5 +21,9 @@
   },
   "homepage": "https://github.com/Shuo-O/agent-bridge-mcp#readme",
   "bugs": "https://github.com/Shuo-O/agent-bridge-mcp/issues",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.199",
+    "@openai/codex-sdk": "0.142.5"
+  }
 }

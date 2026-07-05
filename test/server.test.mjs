@@ -1,15 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { processMessage } from "../src/server.mjs";
 
-test("MCP initialize and tool discovery", async () => {
-  const init = await processMessage({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-06-18" } });
-  assert.equal(init.result.serverInfo.name, "agent-bridge-mcp");
-  const listed = await processMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" });
-  assert.deepEqual(listed.result.tools.map(tool => tool.name), ["ask_claude", "ask_codex", "get_research_log"]);
+test("Codex caller sees only Claude delegation", async () => {
+  process.env.AGENT_BRIDGE_CALLER = "codex";
+  const { processMessage } = await import(`../src/server.mjs?codex=${Date.now()}`);
+  const response = await processMessage({ jsonrpc: "2.0", id: 1, method: "tools/list" });
+  const names = response.result.tools.map(tool => tool.name);
+  assert.ok(names.includes("delegate_to_claude"));
+  assert.ok(!names.includes("delegate_to_codex"));
 });
 
-test("unknown MCP methods return JSON-RPC errors", async () => {
-  const response = await processMessage({ jsonrpc: "2.0", id: 3, method: "missing" });
-  assert.equal(response.error.code, -32601);
+test("Claude caller sees only Codex delegation", async () => {
+  process.env.AGENT_BRIDGE_CALLER = "claude";
+  const { processMessage } = await import(`../src/server.mjs?claude=${Date.now()}`);
+  const response = await processMessage({ jsonrpc: "2.0", id: 2, method: "tools/list" });
+  const names = response.result.tools.map(tool => tool.name);
+  assert.ok(names.includes("delegate_to_codex"));
+  assert.ok(!names.includes("delegate_to_claude"));
+  assert.ok(names.includes("continue_peer_session"));
+  assert.ok(names.includes("search_research"));
+});
+
+test("initialize advertises asynchronous workflow", async () => {
+  const { processMessage } = await import(`../src/server.mjs?init=${Date.now()}`);
+  const response = await processMessage({ jsonrpc: "2.0", id: 3, method: "initialize", params: {} });
+  assert.equal(response.result.serverInfo.version, "0.2.0");
+  assert.match(response.result.instructions, /asynchronous/);
 });

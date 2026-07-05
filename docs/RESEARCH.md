@@ -39,15 +39,15 @@ Codex CLI/App 与 Claude Code 均支持本地 stdio MCP server，并支持项目
 
 ## 选择
 
-采用单个零依赖 Node.js stdio MCP server：
+0.2 采用 Node.js stdio MCP server、官方 Agent SDK 与 SQLite：
 
 ```text
-Codex ── ask_claude ─┐
-                     ├─ Agent Bridge ─ spawn read-only CLI ─ response/log
-Claude ── ask_codex ─┘
+Codex ── delegate_to_claude ─┐
+                             ├─ Agent Bridge ─ detached worker ─ Agent SDK
+Claude ── delegate_to_codex ─┘             └─ SQLite tasks/sessions/research
 ```
 
-网关不实现模型 API，不保存凭据，不承担长期会话；它只负责协议适配与策略。
+网关不保存凭据；它负责协议适配、异步任务、会话 ID 映射与研究索引。模型认证仍由两端官方 SDK/CLI 管理。
 
 ## 风险控制
 

@@ -54,6 +54,7 @@ When handing work to the other agent, include:
 ## Local Project Notes
 
 - This repository implements a local MCP bridge for read-only Codex/Claude Code delegation.
-- Run `npm test` after changes.
+- Run `npm test` after changes. Run `npm run test:e2e` only when real model usage is intended.
+- Node.js 22.5+ is required because task state uses the built-in `node:sqlite` module.
 - Do not commit `.agent-bridge/`; it can contain prompts and model responses.
 - During implementation, Codex owns writes and Claude Code should remain a read-only reviewer.
