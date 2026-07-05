@@ -50,3 +50,18 @@ test("worker records adapter failures", async () => {
   assert.match(getTask(checked, task.id).error, /adapter exploded/);
   checked.close();
 });
+
+test("worker requests API confirmation when subscription access is disabled", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bridge-auth-fallback-"));
+  const path = join(dir, "state.sqlite");
+  const db = openDatabase(path);
+  const task = createTask(db, "claude", { prompt: "fallback", cwd: dir });
+  db.close();
+  await runTask(path, task.id, {
+    env: { ...process.env, ANTHROPIC_API_KEY: "configured" },
+    run: async () => { throw new Error("Your organization has disabled Claude subscription access for Claude Code"); }
+  });
+  const checked = openDatabase(path);
+  assert.equal(getTask(checked, task.id).status, "awaiting_api_confirmation");
+  checked.close();
+});

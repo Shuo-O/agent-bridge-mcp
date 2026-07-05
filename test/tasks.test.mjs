@@ -4,7 +4,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { openDatabase, createTask, getTask } from "../src/database.mjs";
-import { cancelTask, launchTask } from "../src/tasks.mjs";
+import { cancelTask, launchTask, retryTaskWithApi } from "../src/tasks.mjs";
 
 test("cancels a queued task without starting it", async () => {
   const dir = await mkdtemp(join(tmpdir(), "bridge-cancel-"));
@@ -52,7 +52,7 @@ test("detached worker completes after the launcher returns", async () => {
   const launched = launchTask(db, path, "codex", { prompt: "detached", cwd: dir }, { workerPath: fakeWorker });
   db.close();
   let task;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  for (let attempt = 0; attempt < 200; attempt += 1) {
     const checked = openDatabase(path);
     task = getTask(checked, launched.id);
     checked.close();
@@ -61,4 +61,37 @@ test("detached worker completes after the launcher returns", async () => {
   }
   assert.equal(task.status, "completed");
   assert.equal(task.result, "detached-ok");
+});
+
+test("API fallback retries the same task only after approval", async () => {
+  const dir = await mkdtemp(join(tmpdir(), "bridge-api-retry-"));
+  const path = join(dir, "state.sqlite");
+  const fakeWorker = join(dir, "fake-api-worker.mjs");
+  await writeFile(fakeWorker, `
+    import { DatabaseSync } from 'node:sqlite';
+    const [, , dbPath, taskId] = process.argv;
+    const db = new DatabaseSync(dbPath);
+    db.prepare("UPDATE tasks SET status='completed', result=?, completed_at=? WHERE id=?")
+      .run(process.env.AGENT_BRIDGE_API_CONFIRMATION === taskId ? 'api-confirmed' : 'missing-confirmation', new Date().toISOString(), taskId);
+    db.close();
+  `);
+  const db = openDatabase(path);
+  const task = createTask(db, "claude", { prompt: "retry", cwd: dir });
+  db.prepare("UPDATE tasks SET status='awaiting_api_confirmation' WHERE id=?").run(task.id);
+  assert.throws(() => retryTaskWithApi(db, path, task.id), /explicit confirmation/);
+  const retried = retryTaskWithApi(db, path, task.id, {
+    apiApproved: true, workerPath: fakeWorker, env: { ANTHROPIC_API_KEY: "configured" }
+  });
+  assert.equal(retried.id, task.id);
+  assert.equal(retried.auth_mode, "api");
+  db.close();
+  let completed;
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    const checked = openDatabase(path);
+    completed = getTask(checked, task.id);
+    checked.close();
+    if (completed.status === "completed") break;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  assert.equal(completed.result, "api-confirmed");
 });

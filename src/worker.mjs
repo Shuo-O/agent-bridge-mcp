@@ -28,7 +28,10 @@ export async function runTask(dbPath, taskId, { run = runAgent, env = process.en
     db.prepare(`UPDATE tasks SET status = 'completed', result = ?, completed_at = ?, duration_ms = ? WHERE id = ?`)
       .run(output.result.slice(0, 100_000), new Date().toISOString(), Date.now() - started, taskId);
   } catch (error) {
-    const status = cancelled ? "cancelled" : controller.signal.aborted ? "timed_out" : "failed";
+    const subscriptionBlocked = task.agent === "claude" && task.auth_mode === "subscription" &&
+      /disabled Claude subscription access/i.test(String(error?.message || error)) && Boolean(env.ANTHROPIC_API_KEY);
+    const status = subscriptionBlocked ? "awaiting_api_confirmation" :
+      cancelled ? "cancelled" : controller.signal.aborted ? "timed_out" : "failed";
     db.prepare(`UPDATE tasks SET status = ?, error = ?, completed_at = ?, duration_ms = ? WHERE id = ?`)
       .run(status, String(error?.message || error).slice(0, 10_000), new Date().toISOString(), Date.now() - started, taskId);
   } finally {

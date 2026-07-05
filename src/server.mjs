@@ -1,6 +1,6 @@
 import readline from "node:readline";
 import { databasePath, openDatabase, getTask, listTasks, publicTask, searchResearch } from "./database.mjs";
-import { launchTask, cancelTask } from "./tasks.mjs";
+import { launchTask, cancelTask, retryTaskWithApi } from "./tasks.mjs";
 
 const protocolVersion = "2025-06-18";
 const caller = process.env.AGENT_BRIDGE_CALLER || "both";
@@ -53,6 +53,10 @@ const tools = [...peerTools,
     inputSchema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"], additionalProperties: false }
   },
   {
+    name: "retry_task_with_api", description: "Retry a subscription-blocked task with an API key. Always requires a fresh user confirmation and may incur charges.",
+    inputSchema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"], additionalProperties: false }
+  },
+  {
     name: "search_research", description: "Search completed peer research stored in the local SQLite database.",
     inputSchema: { type: "object", properties: {
       query: { type: "string", default: "" }, cwd: { type: "string" },
@@ -95,6 +99,12 @@ async function callTool(name, args = {}) {
       }, { apiApproved }));
     }
     if (name === "cancel_task") return respond(cancelTask(db, args.task_id));
+    if (name === "retry_task_with_api") {
+      const task = getTask(db, args.task_id);
+      if (!task) throw new Error(`Task not found: ${args.task_id}`);
+      const apiApproved = await requestApiConfirmation(task.agent === "claude" ? "Claude" : "Codex");
+      return respond(retryTaskWithApi(db, dbPath, args.task_id, { apiApproved }));
+    }
     if (name === "search_research") return respond(searchResearch(db, args));
     if (name === "list_tasks") return respond(listTasks(db, args).map(task => publicTask(task)));
     throw new Error(`Unknown or unavailable tool for caller ${caller}: ${name}`);
