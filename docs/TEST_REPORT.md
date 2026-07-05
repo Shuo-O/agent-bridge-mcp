@@ -1,6 +1,6 @@
 # Agent Bridge 0.2 测试报告
 
-测试日期：2026-07-05
+测试日期：2026-07-03
 
 测试平台：macOS，Node.js v26.0.0
 
@@ -10,9 +10,7 @@ Claude Agent SDK：0.3.199
 
 ## 结论
 
-核心实现通过全部自动化测试；Codex 的真实首次调用与同会话续问通过。Claude SDK 已验证到达官方认证服务，但测试环境的组织策略禁用了 Claude Code 订阅访问，同时现有 API key 余额不足，因此官方 Claude Code 后端属于外部认证阻塞。
-
-已按“目标优先”切换可运行方案：Codex 侧 `delegate_to_claude` 现在可通过显式环境变量路由到本机 LM Studio peer。该路径不使用 Anthropic API，不依赖 Claude Code 订阅权限，已通过真实 MCP 调用验证。
+核心实现通过全部自动化测试；Codex 的真实首次调用与同会话续问通过。Claude SDK 已验证到达官方认证服务，但测试环境的组织策略禁用了 Claude Code 订阅访问，同时现有 API key 余额不足，因此 Claude 模型调用属于外部认证阻塞，未宣称端到端通过。
 
 ## 自动化测试
 
@@ -34,12 +32,11 @@ npm test
 - 嵌套委派阻止
 - 默认剥离 API key 与显式按量模式
 - 默认不暴露 API fallback 工具
-- LM Studio fallback peer 的 OpenAI-compatible 调用封装
 - API 任务缺少当次确认时拒绝创建
 - 订阅被组织策略禁止时进入 `awaiting_api_confirmation`
 - 用户确认后以同一任务 ID 启动 API fallback
 
-结果：21 项全部通过。最终交付前应以最新一次命令输出为准。
+结果：20 项全部通过。最终交付前应以最新一次命令输出为准。
 
 ## Codex 真实端到端
 
@@ -88,42 +85,6 @@ AGENT_BRIDGE_E2E_AGENTS=claude npm run test:e2e
 
 恢复认证后，重新运行 Claude 单端命令即可补齐验收。
 
-## LM Studio fallback peer 真实端到端
-
-当前 Codex App 配置：
-
-```toml
-AGENT_BRIDGE_CALLER = "codex"
-AGENT_BRIDGE_CLAUDE_BACKEND = "lmstudio"
-AGENT_BRIDGE_LMSTUDIO_MODEL = "peer-agent"
-AGENT_BRIDGE_LMSTUDIO_AUTO_START = "1"
-```
-
-准备命令：
-
-```bash
-lms server start
-lms load google/gemma-4-12b --identifier peer-agent -y --ttl 1800
-```
-
-验证方式：
-
-1. MCP initialize。
-2. `tools/list` 确认 Codex caller 只暴露 `delegate_to_claude` 及任务查询工具。
-3. `tools/call delegate_to_claude`，prompt 要求返回固定字符串。
-4. 轮询 `get_task_status`。
-5. 读取 `get_task_result`。
-
-结果：通过。任务以 `auth_mode=subscription` 创建，但实际后端由 `AGENT_BRIDGE_CLAUDE_BACKEND=lmstudio` 路由到本机 LM Studio，最终返回目标字符串。该路径证明 Codex App/MCP 可以完成“直接委派并拿回结果”，不再被 Claude 组织策略阻塞。
-
-最终 Codex App 指令验收：
-
-- 输入到 Codex App 的指令：调用 `delegate_to_claude`，要求只回复 `CODEX_APP_LOCAL_PEER_OK`。
-- 任务 ID：`b3dd2e47-de21-4729-82ee-c8264249d883`
-- 状态流转：`queued` → `running` → `completed`
-- 结果：`CODEX_APP_LOCAL_PEER_OK`
-- API 使用：未使用 Anthropic API；本地后端为 `peer-agent`。
-
 ## 安全测试结论
 
 - Codex caller 不会获得 `delegate_to_codex`。
@@ -132,11 +93,9 @@ lms load google/gemma-4-12b --identifier peer-agent -y --ttl 1800
 - 默认不会把 API key 传给 SDK 子进程。
 - Codex 真实任务使用 `read-only` sandbox 与 `approvalPolicy=never`。
 - Claude 配置仅允许 Read/Glob/Grep/WebSearch/WebFetch，并启用 strict MCP config。
-- LM Studio fallback 仅访问本机 `127.0.0.1:1234/v1`，不传递 Anthropic API key。
 
 ## 已知限制
 
 - 异步 worker 是本机 detached 进程；机器重启会中断运行任务，但已完成结果与 session 映射仍保存在 SQLite。
 - SQLite 搜索当前使用 `LIKE`，适合个人项目规模；大量历史记录可升级到 FTS5。
 - Claude 完整端到端仍依赖账户管理员开启订阅访问；API fallback 还要求每次 MCP 交互确认及有效余额。
-- LM Studio fallback 是本地模型替代 peer，不等价于官方 Claude Code；输出质量取决于本机模型。

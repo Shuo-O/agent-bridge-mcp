@@ -1,6 +1,6 @@
 [mcp_servers.agent-bridge]
 command = "node"
 args = ["src/server.mjs"]
-env = { AGENT_BRIDGE_CALLER = "codex", AGENT_BRIDGE_CLAUDE_BACKEND = "lmstudio", AGENT_BRIDGE_LMSTUDIO_MODEL = "peer-agent", AGENT_BRIDGE_LMSTUDIO_AUTO_START = "1" }
+env = { AGENT_BRIDGE_CALLER = "codex" }
 startup_timeout_sec = 10
 tool_timeout_sec = 30
