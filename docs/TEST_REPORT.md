@@ -124,6 +124,14 @@ lms load google/gemma-4-12b --identifier peer-agent -y --ttl 1800
 - 结果：`CODEX_APP_LOCAL_PEER_OK`
 - API 使用：未使用 Anthropic API；本地后端为 `peer-agent`。
 
+2026-07-05 最终目标验收：确认 Claude Code 订阅阻塞不是可本地修复的账号配置项后，按“实现效果即可”恢复本地 peer。已再次通过 Codex App 对话输入委派指令，并以同一 MCP 链路验收：
+
+- 输入到 Codex App 的指令：调用 `delegate_to_claude`，要求只回复 `CODEX_APP_EFFECT_OK`。
+- 任务 ID：`f23f1841-ce32-4df4-8eb3-d5e8c7aec075`
+- 状态流转：`queued` → `running` → `completed`
+- 结果：`CODEX_APP_EFFECT_OK`
+- API 使用：未使用 Anthropic API；后端为本机 LM Studio `peer-agent`。
+
 ## 安全测试结论
 
 - Codex caller 不会获得 `delegate_to_codex`。
