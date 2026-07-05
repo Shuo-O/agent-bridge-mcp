@@ -58,7 +58,7 @@ test("worker requests API confirmation when subscription access is disabled", as
   const task = createTask(db, "claude", { prompt: "fallback", cwd: dir });
   db.close();
   await runTask(path, task.id, {
-    env: { ...process.env, ANTHROPIC_API_KEY: "configured" },
+    env: { ...process.env, ANTHROPIC_API_KEY: "configured", AGENT_BRIDGE_ENABLE_API_FALLBACK: "1" },
     run: async () => { throw new Error("Your organization has disabled Claude subscription access for Claude Code"); }
   });
   const checked = openDatabase(path);

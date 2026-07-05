@@ -31,7 +31,7 @@ test("rejects API tasks without invocation-specific approval", async () => {
   const db = openDatabase(path);
   assert.throws(() => launchTask(db, path, "claude", {
     prompt: "paid", cwd: dir, auth_mode: "api"
-  }), /explicit confirmation/);
+  }, { env: { AGENT_BRIDGE_ENABLE_API_FALLBACK: "1" } }), /explicit confirmation/);
   assert.equal(db.prepare("SELECT COUNT(*) AS count FROM tasks").get().count, 0);
   db.close();
 });
@@ -80,7 +80,8 @@ test("API fallback retries the same task only after approval", async () => {
   db.prepare("UPDATE tasks SET status='awaiting_api_confirmation' WHERE id=?").run(task.id);
   assert.throws(() => retryTaskWithApi(db, path, task.id), /explicit confirmation/);
   const retried = retryTaskWithApi(db, path, task.id, {
-    apiApproved: true, workerPath: fakeWorker, env: { ANTHROPIC_API_KEY: "configured" }
+    apiApproved: true, workerPath: fakeWorker,
+    env: { ANTHROPIC_API_KEY: "configured", AGENT_BRIDGE_ENABLE_API_FALLBACK: "1" }
   });
   assert.equal(retried.id, task.id);
   assert.equal(retried.auth_mode, "api");

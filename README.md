@@ -12,8 +12,8 @@ Agent Bridge 0.2 使用本地 MCP 作为统一入口，以官方 Codex SDK 和 C
 - `search_research` 在本地 SQLite 中检索双方历史结论。
 - 支持任务状态、结果查询、列表与取消。
 - 默认只读、禁用子 agent 的 MCP bridge，并阻止嵌套调用。
-- 默认复用 CLI/订阅登录，主动移除 API key，避免意外按量计费；API 模式每次都要求 MCP 客户端弹窗确认。
-- Claude 订阅被组织策略禁止时，任务自动进入 `awaiting_api_confirmation`，可在确认后用 API 重试同一任务。
+- 默认是严格的订阅专用模式：主动移除 API key，也不暴露 API 工具。
+- 只有管理员显式开启 fallback 后，API 模式才可见；每次实际调用仍必须由 MCP 客户端弹窗确认。
 
 ## 要求
 
@@ -103,7 +103,7 @@ Bridge 会找到该任务对应的 SDK session/thread 并延续上下文。
 | `get_task_result` | 查询状态和最终答案 |
 | `continue_peer_session` | 延续此前对侧会话 |
 | `cancel_task` | 取消排队或运行任务 |
-| `retry_task_with_api` | 对订阅被禁用的任务发起逐次确认并用 API 重试 |
+| `retry_task_with_api` | 可选工具；仅在启用 fallback 后出现，用 API 重试订阅被禁用的任务 |
 | `list_tasks` | 列出近期任务 |
 | `search_research` | 检索已完成的调研 |
 
@@ -118,7 +118,9 @@ Bridge 会找到该任务对应的 SDK session/thread 并延续上下文。
 
 这样优先复用本机 CLI 保存的订阅/OAuth 登录，防止环境变量导致意外 API 费用。
 
-如果组织禁用了订阅访问，Bridge 会识别官方错误并把任务置为 `awaiting_api_confirmation`。随后调用 `retry_task_with_api`，Bridge 会通过 MCP elicitation 请求客户端弹出确认；只有用户当次接受“可能产生 API 费用”后，才会把 API key 传给该任务并重试。拒绝、超时或客户端不支持 elicitation 时都不会重试。也可在首次委派中显式设置 `auth_mode: "api"`，同样必须逐次确认。每次续问也会重新确认。
+默认配置不会使用 API；订阅被组织禁止时任务直接失败并保留官方错误。
+
+如果确实需要可选 fallback，启动 MCP server 时增加 `AGENT_BRIDGE_ENABLE_API_FALLBACK=1`。这只让 fallback 工具可用，不构成费用授权。启用后，订阅被禁止会把任务置为 `awaiting_api_confirmation`；调用 `retry_task_with_api` 时，Bridge 再通过 MCP elicitation 弹窗。只有用户当次接受“可能产生 API 费用”后才会传递 API key。拒绝、超时或客户端不支持 elicitation 时都不会重试，每次续问也会重新确认。
 
 ## 数据与安全
 

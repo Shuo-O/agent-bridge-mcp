@@ -9,7 +9,7 @@ import readline from "node:readline";
 test("API mode elicits confirmation and starts nothing when declined", async () => {
   const cwd = await mkdtemp(join(tmpdir(), "bridge-elicit-"));
   const server = spawn(process.execPath, [resolve("src/server.mjs")], {
-    cwd, env: { ...process.env, AGENT_BRIDGE_CALLER: "codex" }, stdio: ["pipe", "pipe", "inherit"]
+    cwd, env: { ...process.env, AGENT_BRIDGE_CALLER: "codex", AGENT_BRIDGE_ENABLE_API_FALLBACK: "1" }, stdio: ["pipe", "pipe", "inherit"]
   });
   const lines = readline.createInterface({ input: server.stdout, crlfDelay: Infinity });
   const messages = [];

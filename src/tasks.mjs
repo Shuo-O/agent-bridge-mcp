@@ -16,6 +16,9 @@ function spawnWorker(task, dbPath, options = {}) {
 export function launchTask(db, dbPath, agent, args, options = {}) {
   const depth = Number((options.env || process.env).AI_AGENT_BRIDGE_DEPTH || 0);
   if (!Number.isInteger(depth) || depth >= 1) throw new Error("Nested delegation is blocked to prevent recursive loops");
+  if (args.auth_mode === "api" && (options.env || process.env).AGENT_BRIDGE_ENABLE_API_FALLBACK !== "1") {
+    throw new Error("API fallback is disabled; subscription-only mode is active");
+  }
   const task = createTask(db, agent, args);
   if (task.auth_mode === "api" && options.apiApproved !== true) {
     db.prepare("DELETE FROM tasks WHERE id = ?").run(task.id);
@@ -33,6 +36,7 @@ export function retryTaskWithApi(db, dbPath, id, options = {}) {
   }
   if (options.apiApproved !== true) throw new Error("API retry requires an explicit confirmation for this invocation");
   const env = options.env || process.env;
+  if (env.AGENT_BRIDGE_ENABLE_API_FALLBACK !== "1") throw new Error("API fallback is disabled; subscription-only mode is active");
   const requiredKey = task.agent === "claude" ? env.ANTHROPIC_API_KEY : (env.CODEX_API_KEY || env.OPENAI_API_KEY);
   if (!requiredKey) throw new Error(`No API key is configured for ${task.agent}`);
   db.prepare(`UPDATE tasks SET auth_mode = 'api', status = 'queued', error = NULL,

@@ -7,7 +7,7 @@ import { databasePath, getTask, openDatabase } from "../src/database.mjs";
 if (!process.env.ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is required for this confirmed fallback test");
 const cwd = resolve(process.cwd());
 const server = spawn(process.execPath, [resolve(cwd, "src/server.mjs")], {
-  cwd, env: { ...process.env, AGENT_BRIDGE_CALLER: "codex" }, stdio: ["pipe", "pipe", "inherit"]
+  cwd, env: { ...process.env, AGENT_BRIDGE_CALLER: "codex", AGENT_BRIDGE_ENABLE_API_FALLBACK: "1" }, stdio: ["pipe", "pipe", "inherit"]
 });
 const lines = readline.createInterface({ input: server.stdout, crlfDelay: Infinity });
 const responses = new Map();

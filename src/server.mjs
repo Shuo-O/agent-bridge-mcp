@@ -4,6 +4,7 @@ import { launchTask, cancelTask, retryTaskWithApi } from "./tasks.mjs";
 
 const protocolVersion = "2025-06-18";
 const caller = process.env.AGENT_BRIDGE_CALLER || "both";
+const apiFallbackEnabled = process.env.AGENT_BRIDGE_ENABLE_API_FALLBACK === "1";
 const dbPath = databasePath(process.cwd());
 let queue = Promise.resolve();
 const pendingClientResponses = new Map();
@@ -12,15 +13,19 @@ let transportReady = false;
 let clientSupportsElicitation = false;
 
 function taskSchema() {
+  const properties = {
+    prompt: { type: "string", minLength: 1 },
+    cwd: { type: "string", description: "Absolute project directory; defaults to server cwd." },
+    session_key: { type: "string", description: "Reuse this key to continue one peer conversation." },
+    timeout_seconds: { type: "integer", minimum: 10, maximum: 1800, default: 300 }
+  };
+  if (apiFallbackEnabled) properties.auth_mode = {
+    type: "string", enum: ["subscription", "api"], default: "subscription",
+    description: "API mode always triggers a fresh user confirmation."
+  };
   return {
     type: "object",
-    properties: {
-      prompt: { type: "string", minLength: 1 },
-      cwd: { type: "string", description: "Absolute project directory; defaults to server cwd." },
-      session_key: { type: "string", description: "Reuse this key to continue one peer conversation." },
-      timeout_seconds: { type: "integer", minimum: 10, maximum: 1800, default: 300 },
-      auth_mode: { type: "string", enum: ["subscription", "api"], default: "subscription", description: "API mode always triggers a fresh user confirmation." }
-    }, required: ["prompt"], additionalProperties: false
+    properties, required: ["prompt"], additionalProperties: false
   };
 }
 
@@ -53,10 +58,6 @@ const tools = [...peerTools,
     inputSchema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"], additionalProperties: false }
   },
   {
-    name: "retry_task_with_api", description: "Retry a subscription-blocked task with an API key. Always requires a fresh user confirmation and may incur charges.",
-    inputSchema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"], additionalProperties: false }
-  },
-  {
     name: "search_research", description: "Search completed peer research stored in the local SQLite database.",
     inputSchema: { type: "object", properties: {
       query: { type: "string", default: "" }, cwd: { type: "string" },
@@ -68,6 +69,10 @@ const tools = [...peerTools,
     inputSchema: { type: "object", properties: { cwd: { type: "string" }, limit: { type: "integer", minimum: 1, maximum: 100 } }, additionalProperties: false }
   }
 ];
+if (apiFallbackEnabled) tools.push({
+  name: "retry_task_with_api", description: "Retry a subscription-blocked task with an API key. Always requires a fresh user confirmation and may incur charges.",
+  inputSchema: { type: "object", properties: { task_id: { type: "string" } }, required: ["task_id"], additionalProperties: false }
+});
 
 function respond(value) {
   return { content: [{ type: "text", text: JSON.stringify(value, null, 2) }] };
@@ -77,10 +82,12 @@ async function callTool(name, args = {}) {
   const db = openDatabase(dbPath);
   try {
     if (name === "delegate_to_claude") {
+      if (args.auth_mode === "api" && !apiFallbackEnabled) throw new Error("API fallback is disabled; subscription-only mode is active");
       const apiApproved = args.auth_mode === "api" ? await requestApiConfirmation("Claude") : false;
       return respond(launchTask(db, dbPath, "claude", args, { apiApproved }));
     }
     if (name === "delegate_to_codex") {
+      if (args.auth_mode === "api" && !apiFallbackEnabled) throw new Error("API fallback is disabled; subscription-only mode is active");
       const apiApproved = args.auth_mode === "api" ? await requestApiConfirmation("Codex") : false;
       return respond(launchTask(db, dbPath, "codex", args, { apiApproved }));
     }
